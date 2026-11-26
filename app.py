@@ -1,136 +1,89 @@
-import pandas as pd
 import streamlit as st
+import pandas as pd
 
-# 식물 종류별 기본 물주기 간격과 특징 리스트
+# 1. 데이터 구조 (리스트): 식물 종류별 기본 물주기 간격(일)
 plants = ["선인장", "다육식물", "몬스테라", "스파티필름"]
 watering_days = [14, 10, 7, 5]
-plant_info = [
-    (
-        "낮에 기공을 닫고 밤에 여는 CAM 광합성을 해서 증산 작용이 매우 적습니다."
-        " 흙이 완전히 말랐을 때 물을 주세요."
-    ),
-    (
-        "잎과 줄기에 수분을 저장하고 큐티클층이 두꺼워 증산 속도가 느립니다."
-        " 아래쪽 잎이 살짝 말랑해질 때 물을 주세요."
-    ),
-    (
-        "잎이 넓고 기공이 많아 증산 작용이 활발합니다. 증산 인력으로 뿌리의"
-        " 삼투압 흡수가 빠르니 겉흙이 마르면 물을 주세요."
-    ),
-    (
-        "잎이 얇고 증산량이 많아 수분이 많이 필요합니다. 물이 부족하면 잎이"
-        " 처지므로 겉흙이 마르기 시작할 때 바로 주세요."
-    ),
-]
 
 
-# 물주기 시기와 상태를 계산하는 함수
+# 2. 함수 (def): 물주기 상태와 남은 날짜를 계산해 돌려줌
 def check_watering(plant, temperature, humidity, last_days):
-  # for문으로 선택한 식물의 기본 물주기 일수와 설명 찾기
-  watering_interval = 7
-  info_text = ""
+    # 4. 반복문 (for): 리스트를 돌며 선택한 식물의 기본 간격 찾기
+    watering_interval = 0
+    for i in range(len(plants)):
+        if plants[i] == plant:
+            watering_interval = watering_days[i]
 
-  for i in range(len(plants)):
-    if plants[i] == plant:
-      watering_interval = watering_days[i]
-      info_text = plant_info[i]
-      break
+    # 온도에 따른 조정 (더우면 증산 작용이 활발 → 물이 빨리 마름)
+    if temperature >= 30:
+        temp_state = "높음"
+        watering_interval = watering_interval - 2
+    elif temperature <= 15:
+        temp_state = "낮음"
+        watering_interval = watering_interval + 2
+    else:
+        temp_state = "보통"
 
-  # 온도와 습도에 따른 증산 작용 속도 반영
-  if temperature >= 28:
-    watering_interval = watering_interval - 1
-  elif temperature <= 15:
-    watering_interval = watering_interval + 1
+    # 습도에 따른 조정 (건조하면 증산 작용이 활발 → 물이 빨리 마름)
+    if humidity <= 30:
+        humid_state = "건조"
+        watering_interval = watering_interval - 1
+    elif humidity >= 70:
+        humid_state = "습함"
+        watering_interval = watering_interval + 1
+    else:
+        humid_state = "보통"
 
-  if humidity <= 35:
-    watering_interval = watering_interval - 1
-  elif humidity >= 70:
-    watering_interval = watering_interval + 1
+    # 간격이 1일보다 짧아지지 않도록
+    if watering_interval < 1:
+        watering_interval = 1
 
-  if watering_interval < 1:
-    watering_interval = 1
+    # 3. 조건문 (if-elif-else): 물주기 상태 판단
+    if last_days >= watering_interval:
+        message = "물을 줄 시기가 되었습니다! 흙이 말랐는지 확인한 뒤 물을 주세요."
+    elif last_days >= watering_interval - 2:
+        message = "곧 물을 줄 시기입니다. 흙의 상태를 자주 확인해 주세요."
+    else:
+        message = "아직 물을 줄 시기가 아닙니다. 흙의 상태를 확인해 주세요."
 
-  # 남은 날짜 계산
-  remain_days = watering_interval - last_days
-  if remain_days < 0:
-    remain_days = 0
+    remaining = watering_interval - last_days
+    if remaining < 0:
+        remaining = 0
 
-  # 조건문으로 물주기 상태 판별
-  if last_days >= watering_interval:
-    status = "시기됨"
-    message = (
-        "물주기 시기가 되었습니다. 흙의 건조 상태를 확인하고 물을 주세요."
-    )
-  elif last_days >= watering_interval - 2:
-    status = "곧"
-    message = f"곧 물을 줄 시기입니다. 약 {remain_days}일 뒤에 물을 주세요."
-  else:
-    status = "아직"
-    message = (
-        "아직 물을 줄 시기가 아닙니다. 토양 수분과 뿌리의 삼투 흡수가"
-        " 안정적입니다."
-    )
-
-  return status, remain_days, message, watering_interval, info_text
+    return message, remaining, watering_interval, temp_state, humid_state
 
 
-# 화면 제목 및 설명
-st.title("맞춤형 식물 물주기 시기 확인 앱")
-st.write(
-    "식물 종류와 주변 온도, 습도에 따른 증산 작용 원리를 이용해 물주기 시기를"
-    " 알려줍니다."
-)
+# ---------------- 화면 구성 ----------------
+st.title("🌱 식물 물주기 시기 예측기")
 
-# 사용자 입력 받기
-selected_plant = st.selectbox("식물 종류를 선택하세요", plants)
-temperature = st.slider("주변 온도 (°C)", 0, 40, 25)
+plant = st.selectbox("식물 종류 선택", plants)
+temperature = st.slider("주변 온도 (도)", 0, 40, 25)
 humidity = st.slider("주변 습도 (%)", 0, 100, 50)
-last_days = st.number_input("마지막으로 물 준 날 (며칠 전)", 0, 100, 11)
+last_days = st.number_input("마지막 물주기 (며칠 전)", min_value=0, max_value=60, value=0, step=1)
 
-# 버튼 클릭 시 결과 출력
 if st.button("물주기 시기 분석"):
-  status, remain_days, message, final_days, info_text = check_watering(
-      selected_plant, temperature, humidity, last_days
-  )
+    message, remaining, interval, temp_state, humid_state = check_watering(
+        plant, temperature, humidity, last_days
+    )
 
-  st.subheader(f"예상 물주기까지 남은 시간: [{remain_days}일]")
+    # 텍스트 메시지
+    if remaining == 0:
+        st.warning(message)
+    else:
+        st.info(message)
 
-  if status == "시기됨":
-    st.error(message)
-  elif status == "곧":
-    st.warning(message)
-  else:
-    st.success(message)
+    # 테이블(표)
+    st.subheader("환경 및 식물 관리 분석 결과")
+    result = pd.DataFrame({
+        "항목": ["식물 종류", "온도", "습도", "조정된 물주기 간격"],
+        "입력값": [plant, f"{temperature} 도", f"{humidity}%", f"{interval} 일"],
+        "상태": ["확인", temp_state, humid_state, "계산됨"],
+    })
+    st.table(result)
 
-  # 온도와 습도 상태 정리
-  if temperature > 27:
-    temp_state = "높음 (증산 활발)"
-  elif temperature < 18:
-    temp_state = "낮음 (증산 둔화)"
-  else:
-    temp_state = "보통"
+    # 강조 수치(Metric)
+    st.metric("예상 물주기까지 남은 날짜", f"{remaining} 일")
 
-  if humidity > 65:
-    hum_state = "다습 (증산 억제)"
-  elif humidity < 40:
-    hum_state = "건조 (증산 촉진)"
-  else:
-    hum_state = "보통"
-
-  # 결과표 출력
-  st.write("### 환경 분석 결과표")
-  result_table = pd.DataFrame({
-      "항목": ["식물종류", "온도", "습도", "마지막 물주기"],
-      "입력 값": [
-          selected_plant,
-          f"{temperature}도",
-          f"{humidity}%",
-          f"{last_days}일 전",
-      ],
-      "상태": ["확인", temp_state, hum_state, f"권장 주기 {final_days}일"],
-  })
-  st.dataframe(result_table, hide_index=True)
-
-  # 식물별 원리 및 관리 방법 출력
-  st.write(f"**[{selected_plant}의 증산 작용 및 관리 방법]**")
-  st.info(info_text)
+    st.write("💧 식물 관리 안내: 흙이 충분히 말랐는지 확인한 후 물을 주세요.")
+    st.caption("※ 이 결과는 프로그램의 예시이며, 실제 물주기 시기는 흙의 건조 상태와 "
+               "식물의 생육 환경에 따라 달라질 수 있습니다.")
