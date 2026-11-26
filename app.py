@@ -1,47 +1,49 @@
 import streamlit as st
 import pandas as pd
 
-st.set_page_config(page_title="물주기 예측기", page_icon="🌱")
-
-# 글씨체 바꾸기
+# 꾸미기 - 글씨체, 배경색, 상자
 st.markdown("""
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Gowun+Dodum&family=Jua&display=swap');
-* {font-family: 'Gowun Dodum', sans-serif;}
-h1, h2, h3 {font-family: 'Jua', sans-serif; color: green;}
+html, body, [class*="css"], p, label, button, div, td, th {
+    font-family: 'Gowun Dodum', sans-serif !important;
+}
+h1, h2, h3 {
+    font-family: 'Jua', sans-serif !important;
+    color: #2f6b3a;
+}
+.stApp {
+    background-color: #f3faf1;
+}
+.guide {
+    background-color: #ffffff;
+    border-left: 6px solid #6fbf73;
+    border-radius: 10px;
+    padding: 12px 16px;
+    margin-top: 10px;
+}
 </style>
 """, unsafe_allow_html=True)
 
-# 1) 시작
+# 1) 시작: 사용자가 앱에 접속함
 st.title("🌱 식물 물주기 시기 예측기")
-st.write("식물 종류랑 주변 온도, 습도를 넣으면 언제 물 주면 되는지 알려줌!")
+st.write("식물 종류와 주변 온도, 습도를 입력하면 물을 줄 시기를 알려드려요.")
+st.divider()
 
-# 2) 리스트 선언
+# 2) 리스트 선언: 식물 종류별 기본 물주기 간격
 plants = ["선인장", "다육식물", "몬스테라", "스파티필름"]
 watering_days = [14, 10, 7, 5]
 
-# 추가) 식물별 관리 팁
-tips = ["선인장은 물 너무 자주 주면 뿌리가 썩음. 흙이 바싹 마르면 주기",
-        "다육식물은 잎에 물을 저장함. 잎이 쭈글쭈글해지면 물 주기",
-        "몬스테라는 겉흙이 2~3cm 마르면 물 듬뿍 주기",
-        "스파티필름은 물 부족하면 잎이 축 처짐. 흙이 너무 마르지 않게 하기"]
-
-# 사이드바에 식물 정보
-st.sidebar.title("식물별 기본 물주기")
-for i in range(len(plants)):
-    st.sidebar.write(plants[i], ":", watering_days[i], "일")
-st.sidebar.write("")
-st.sidebar.write("덥고 건조하면 증산 작용이 활발해져서 물이 더 빨리 마름!")
-
 
 def check_watering(plant, temperature, humidity, last_days):
-    # 6) for문으로 선택한 식물 기준 찾기
+    # 6) 반복: 리스트를 돌면서 선택한 식물의 물주기 기준 찾기
     watering_interval = 0
     for i in range(len(plants)):
         if plants[i] == plant:
             watering_interval = watering_days[i]
 
-    # 5) 온도 습도에 따라 간격 바꾸기
+    # 5) 조건 판단: 온도, 습도 확인
+    # 덥거나 건조하면 증산 작용이 많아져서 흙이 빨리 마른다
     if temperature >= 30:
         temp_state = "높음"
         watering_interval = watering_interval - 2
@@ -63,7 +65,7 @@ def check_watering(plant, temperature, humidity, last_days):
     if watering_interval < 1:
         watering_interval = 1
 
-    # 마지막 물준 날이랑 비교
+    # 마지막 물주기 날짜랑 비교 (시기 됨 / 곧 / 아직)
     if last_days >= watering_interval:
         status = "시기 됨"
         msg = "물을 줄 시기가 되었습니다. 흙의 상태를 확인하고 물을 주세요."
@@ -78,31 +80,37 @@ def check_watering(plant, temperature, humidity, last_days):
     if left < 0:
         left = 0
 
-    return status, msg, left, watering_interval, temp_state, hum_state
+    return status, msg, left, temp_state, hum_state
 
 
 # 3) 입력 받기
-plant = st.selectbox("식물 종류 선택", plants)
-temperature = st.slider("주변 온도 (도)", 0, 40, 25)
-humidity = st.slider("주변 습도 (%)", 0, 100, 50)
-last_days = st.number_input("마지막 물주기 (며칠 전)", 0, 60, 0)
+plant = st.selectbox("(1) 식물 종류 선택", plants)
 
-# 4) 버튼 누르면 실행
-if st.button("물주기 시기 분석"):
-    status, msg, left, interval, temp_state, hum_state = check_watering(plant, temperature, humidity, last_days)
+col1, col2 = st.columns(2)
+with col1:
+    temperature = st.slider("(2) 주변 온도 (도)", 0, 40, 25)
+with col2:
+    humidity = st.slider("(3) 주변 습도 (%)", 0, 100, 50)
 
-    st.header("분석 결과")
+last_days = st.number_input("(4) 마지막 물주기 (며칠 전)", 0, 60, 0)
 
-    # 상태마다 색 다르게
+# 4) 버튼 클릭 시 함수 실행
+if st.button("물주기 시기 분석", use_container_width=True):
+    status, msg, left, temp_state, hum_state = check_watering(plant, temperature, humidity, last_days)
+
+    st.divider()
+    st.subheader("분석 결과")
+
+    # 텍스트 메시지 (상태에 따라 색 다르게)
     if status == "시기 됨":
         st.error(msg)
-        st.balloons()
     elif status == "곧":
         st.warning(msg)
     else:
         st.success(msg)
 
-    # 7) 표로 출력
+    # 7) 결과 출력: 환경 분석 결과 표
+    st.write("**환경 및 식물 관리 분석 결과**")
     df = pd.DataFrame({
         "항목": ["식물 종류", "온도", "습도"],
         "입력값": [plant, str(temperature) + " 도", str(humidity) + "%"],
@@ -113,18 +121,8 @@ if st.button("물주기 시기 분석"):
     # 강조 수치
     st.metric("예상 물주기까지 남은 날짜", str(left) + " 일")
 
-    st.write("식물 관리 안내: 흙이 충분히 말랐는지 확인한 후 물을 주세요.")
+    # 식물 관리 안내
+    st.markdown('<div class="guide">💧 <b>식물 관리 안내</b><br>흙이 충분히 말랐는지 확인한 후 물을 주세요.</div>',
+                unsafe_allow_html=True)
 
-    # 추가) 선택한 식물 팁 보여주기
-    for i in range(len(plants)):
-        if plants[i] == plant:
-            st.info("💡 " + plant + " 팁 : " + tips[i])
-
-    # 추가) 온도 습도 반영해서 원래 간격이랑 비교
-    st.write("원래 간격이랑 지금 환경에서 간격 비교")
-    for i in range(len(plants)):
-        if plants[i] == plant:
-            compare = pd.DataFrame({"일": [watering_days[i], interval]}, index=["기본 간격", "지금 환경"])
-            st.bar_chart(compare)
-
-    st.caption("※ 실제 물주기 시기는 흙의 건조 상태와 식물의 생육 환경에 따라 달라질 수 있음")
+    st.caption("※ 위 결과는 프로그램의 예시이며, 실제 물주기 시기는 흙의 건조 상태와 식물의 생육 환경에 따라 달라질 수 있음.")
