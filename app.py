@@ -1,89 +1,80 @@
 import streamlit as st
 import pandas as pd
 
-# 1. 데이터 구조 (리스트): 식물 종류별 기본 물주기 간격(일)
+# 1) 사용자가 앱에 접속함
+st.title("식물 물주기 시기 예측기")
+
+# 2) 리스트 선언 - 식물 종류별 기본 물주기 간격
 plants = ["선인장", "다육식물", "몬스테라", "스파티필름"]
 watering_days = [14, 10, 7, 5]
 
 
-# 2. 함수 (def): 물주기 상태와 남은 날짜를 계산해 돌려줌
 def check_watering(plant, temperature, humidity, last_days):
-    # 4. 반복문 (for): 리스트를 돌며 선택한 식물의 기본 간격 찾기
-    watering_interval = 0
+    # 6) 반복 - 리스트를 돌면서 선택한 식물의 물주기 간격 찾기
+    interval = 0
     for i in range(len(plants)):
         if plants[i] == plant:
-            watering_interval = watering_days[i]
+            interval = watering_days[i]
 
-    # 온도에 따른 조정 (더우면 증산 작용이 활발 → 물이 빨리 마름)
+    # 5) 조건 판단 - 온도, 습도 확인
+    # 덥거나 건조하면 증산 작용이 많아져서 물이 빨리 마른다
     if temperature >= 30:
         temp_state = "높음"
-        watering_interval = watering_interval - 2
+        interval = interval - 2
     elif temperature <= 15:
         temp_state = "낮음"
-        watering_interval = watering_interval + 2
+        interval = interval + 2
     else:
         temp_state = "보통"
 
-    # 습도에 따른 조정 (건조하면 증산 작용이 활발 → 물이 빨리 마름)
     if humidity <= 30:
-        humid_state = "건조"
-        watering_interval = watering_interval - 1
+        hum_state = "건조"
+        interval = interval - 1
     elif humidity >= 70:
-        humid_state = "습함"
-        watering_interval = watering_interval + 1
+        hum_state = "습함"
+        interval = interval + 1
     else:
-        humid_state = "보통"
+        hum_state = "보통"
 
-    # 간격이 1일보다 짧아지지 않도록
-    if watering_interval < 1:
-        watering_interval = 1
+    if interval < 1:
+        interval = 1
 
-    # 3. 조건문 (if-elif-else): 물주기 상태 판단
-    if last_days >= watering_interval:
-        message = "물을 줄 시기가 되었습니다! 흙이 말랐는지 확인한 뒤 물을 주세요."
-    elif last_days >= watering_interval - 2:
-        message = "곧 물을 줄 시기입니다. 흙의 상태를 자주 확인해 주세요."
+    # 마지막 물준 날짜랑 비교해서 메시지 정하기
+    if last_days >= interval:
+        msg = "물을 줄 시기가 되었습니다. 흙이 말랐는지 확인하고 물을 주세요."
+    elif last_days >= interval - 2:
+        msg = "곧 물을 줄 시기입니다. 흙 상태를 자주 확인해 주세요."
     else:
-        message = "아직 물을 줄 시기가 아닙니다. 흙의 상태를 확인해 주세요."
+        msg = "아직 물을 줄 시기가 아닙니다. 흙의 상태를 확인해 주세요."
 
-    remaining = watering_interval - last_days
-    if remaining < 0:
-        remaining = 0
+    left = interval - last_days
+    if left < 0:
+        left = 0
 
-    return message, remaining, watering_interval, temp_state, humid_state
+    return msg, left, temp_state, hum_state
 
 
-# ---------------- 화면 구성 ----------------
-st.title("🌱 식물 물주기 시기 예측기")
-
-plant = st.selectbox("식물 종류 선택", plants)
+# 3) 입력 받기
+plant = st.selectbox("식물 종류", plants)
 temperature = st.slider("주변 온도 (도)", 0, 40, 25)
 humidity = st.slider("주변 습도 (%)", 0, 100, 50)
-last_days = st.number_input("마지막 물주기 (며칠 전)", min_value=0, max_value=60, value=0, step=1)
+last_days = st.number_input("마지막으로 물 준 날 (며칠 전)", 0, 60, 0)
 
+# 4) 버튼 누르면 함수 실행
 if st.button("물주기 시기 분석"):
-    message, remaining, interval, temp_state, humid_state = check_watering(
-        plant, temperature, humidity, last_days
-    )
+    msg, left, temp_state, hum_state = check_watering(plant, temperature, humidity, last_days)
 
-    # 텍스트 메시지
-    if remaining == 0:
-        st.warning(message)
-    else:
-        st.info(message)
+    st.write(msg)
 
-    # 테이블(표)
-    st.subheader("환경 및 식물 관리 분석 결과")
-    result = pd.DataFrame({
-        "항목": ["식물 종류", "온도", "습도", "조정된 물주기 간격"],
-        "입력값": [plant, f"{temperature} 도", f"{humidity}%", f"{interval} 일"],
-        "상태": ["확인", temp_state, humid_state, "계산됨"],
+    # 7) 결과 출력 - 남은 날짜는 강조 수치, 분석 결과는 표로
+    st.metric("물주기까지 남은 날짜", str(left) + "일")
+
+    df = pd.DataFrame({
+        "항목": ["식물 종류", "온도", "습도"],
+        "입력값": [plant, str(temperature) + "도", str(humidity) + "%"],
+        "상태": ["확인", temp_state, hum_state]
     })
-    st.table(result)
+    st.table(df)
 
-    # 강조 수치(Metric)
-    st.metric("예상 물주기까지 남은 날짜", f"{remaining} 일")
-
-    st.write("💧 식물 관리 안내: 흙이 충분히 말랐는지 확인한 후 물을 주세요.")
-    st.caption("※ 이 결과는 프로그램의 예시이며, 실제 물주기 시기는 흙의 건조 상태와 "
-               "식물의 생육 환경에 따라 달라질 수 있습니다.")
+    st.write("식물 관리 안내: 흙이 충분히 말랐는지 확인한 후 물을 주세요.")
+    st.caption("※ 실제 물주기 시기는 흙의 건조 상태와 생육 환경에 따라 달라질 수 있음")
